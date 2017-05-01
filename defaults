@@ -1,0 +1,52 @@
+Default template:
+
+Account:
+  ddi =
+  accountname =
+
+VPC Parameters:
+  Region =
+  Environment = "Production"
+  StackPrefix = "prod"
+
+Base Network:
+  Parameters:
+    AvailabilityZoneCount = [2, 3]
+    CIDRRange: = 172.18.0.0/16
+    Environment = VPC:Environment
+  Exports:
+    VPCID
+    RouteTablePublic
+    RouteTablePrivateAZ1
+    RouteTablePrivateAZ2
+    RouteTablePrivateAZ3 (if AvailabilityZoneCount = 3)
+
+Security Group:
+  Parameters:
+    Environment = VPC:Environment
+    VPCID = BaseNetwork:VPCID
+
+S3 VPC Endpoint:
+  Parameters:
+    VPCID = BaseNetwork:VPCID
+    RouteTableIdsList = BaseNetwork:RouteTablePublic, BaseNetwork:RouteTablePrivateAZ1, BaseNetwork:RouteTablePrivateAZ2,BaseNetwork:RouteTablePrivateAZ3 (if applicable)
+
+Route53 Internal Zone:
+  Parameters:
+    InternalZoneName = "prod"
+    Environment = VPC:Environment
+    VPCID = BaseNetwork:VPCID
+  Exports:
+    InternalHostedZone
+
+SNS Topic Subscriptions:
+  Parameters:
+    DisplayName = "company-email"
+    SubscriptionEndpoint1 = "user1@company.com"
+    SubscriptionProtocol1 = [ "http","https","email","email-json","sms","sqs","application","lambda"]
+    SubscriptionEndpoint2 = "user2@company.com"
+    SubscriptionProtocol2 = [ "http","https","email","email-json","sms","sqs","application","lambda"]
+    SubscriptionEndpoint3 = "user3@company.com"
+    SubscriptionProtocol3 = [ "http","https","email","email-json","sms","sqs","application","lambda"]
+  Export:
+    MySNSTopicTopicARN
