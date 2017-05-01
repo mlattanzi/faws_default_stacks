@@ -49,11 +49,29 @@ def set_cf_client(credentials):
     )
     return cf
 
+def set_ec2_client(credentials):
+    # Create EC2 client
+    ec2 = boto3.client(
+        'ec2',
+        aws_access_key_id=credentials['aws_access_key_id'],
+        aws_secret_access_key=credentials['aws_secret_access_key'],
+        aws_session_token=credentials['aws_session_token'],
+        region_name=credentials['region_name']
+    )
+    return ec2
+
 def set_s3_bucket_name(ddi, raw_account_name):
     # Convert raw_account_name to s3-formatted bucket name
     account_name = raw_account_name.replace(" ", "-").lower()
     s3_bucket_name =  ddi + "-" + account_name
     return s3_bucket_name
+
+def set_ec2_key_name(raw_account_name, environment):
+    # Convert raw_account_name to ec2 key name
+    account_name = raw_account_name.replace(" ", "-").lower()
+    environment = environment.lower()
+    ec2_key_name =  environment + "-" + account_name
+    return ec2_key_name
 
 def create_s3_bucket(s3, s3_bucket_name, region):
     bucket = s3.create_bucket(Bucket=s3_bucket_name, ACL='private')
@@ -264,10 +282,6 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     sns_protocol_1 = cf_parameters_list['SubscriptionProtocol1']
     sns_protocol_2 = cf_parameters_list['SubscriptionProtocol2']
     sns_protocol_3 = cf_parameters_list['SubscriptionProtocol3']
-    # Set default values for Protocols
-    if sns_protocol_1 == '': sns_protocol_1 = 'email'
-    if sns_protocol_2 == '': sns_protocol_2 = 'email'
-    if sns_protocol_3 == '': sns_protocol_3 = 'email'
     sns_topic_name = cf_parameters_list['DisplayName']
 
     stack = cf.create_stack(
@@ -312,65 +326,74 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
 
     return sns_topic_subscriptions_stack_name
 
+def create_ec2_key_pair(ec2, ec2_key_name):
+    key_pair = ec2.create_key_pair(
+        KeyName=ec2_key_name
+    )
+    ec2_key = key_pair['KeyMaterial']
+    return ec2_key
+
 def main(argv):
     print('NOTE: Please run "faws env" and set your environment variables before running this script.')
+
+    # Collect Parameters
     print('Please enter parameters. Leave blank to use default values.')
+
+    # Script Parameters
     print('\nScript Parameters: ')
     cf_directory = raw_input('CloudFormation Template Directory Path: ')
-    # TEMPORARY FOR TESTING
-    if cf_directory == '':
-        cf_directory = '/Users/matt6757/scripts/cftemplates/'
-    #######################
+
+    # Account Parameters
     print('\nAccount Parameters: ')
     ddi = raw_input('Rackspace Account Number: ')
-    # TEMPORARY FOR TESTING
-    if ddi == '':
-        ddi = '981868'
-    #######################
     raw_account_name = raw_input('Rackspace Account Name: ')
-    # TEMPORARY FOR TESTING
-    if raw_account_name == '':
-        raw_account_name = 'Matt Lattanzi'
-    #######################
     s3_bucket_name = set_s3_bucket_name(ddi, raw_account_name)
+
+    # VPC Parameters
     print('\nVPC Parameters: ')
-    region = raw_input('Region (us-west-1): ')
-    if region == '':
-      region = 'us-west-1'
+    region = raw_input('Region (us-east-1): ')
+    if region == '': region = 'us-east-1'
     environment = raw_input('Environment (Production): ')
-    if environment == '':
-      environment = 'Production'
+    if environment == '': environment = 'Production'
     stack_prefix = raw_input('Stack Prefix (prod): ')
-    if stack_prefix == '':
-      stack_prefix = 'prod'
+    if stack_prefix == '': stack_prefix = 'prod'
+
+    # Base Network Parameters
     print('\nBase Network Parameters: ')
     az_count = raw_input('Availability Zone Count (2): ')
-    if az_count == '':
-      az_count = '2'
-    cidr = raw_input('CIDR Range (172.19.0.0/16): ')
-    if cidr == '':
-      cidr = '172.19.0.0/16'
+    if az_count == '': az_count = '2'
+    cidr = raw_input('CIDR Range (172.18.0.0/16): ')
+    if cidr == '': cidr = '172.18.0.0/16'
+
+    # Route53 Internal Zone Parameters
     print('\nRoute53 Internal Zone Parameters: ')
     internal_zone_name = raw_input('Internal Zone Name (prod): ')
-    if internal_zone_name == '':
-      internal_zone_name = 'prod'
+    if internal_zone_name == '': internal_zone_name = 'prod'
+
+    # SNS Topic Subscription Parameters
     print('\nSNS Topic Subscription Parameters: ')
     sns_topic_name = raw_input('SNS Topic Name: ')
-    sns_protocol_1 = raw_input('SNS Protocol 1: ')
+    sns_protocol_1 = raw_input('SNS Protocol 1 (email): ')
+    if sns_protocol_1 == '': sns_protocol_1 = 'email'
     sns_endpoint_1 = raw_input('SNS Endpoint 1: ')
-    sns_protocol_2 = raw_input('SNS Protocol 2: ')
+    sns_protocol_2 = raw_input('SNS Protocol 2 (email): ')
+    if sns_protocol_2 == '': sns_protocol_2 = 'email'
     sns_endpoint_2 = raw_input('SNS Endpoint 2: ')
-    sns_protocol_3 = raw_input('SNS Protocol 3: ')
+    sns_protocol_3 = raw_input('SNS Protocol 3 (email): ')
+    if sns_protocol_3 == '': sns_protocol_3 = 'email'
     sns_endpoint_3 = raw_input('SNS Endpoint 3: ')
 
+    # Set AWS Credentials
     credentials = set_credentials(region)
 
+    # Initialize AWS Clients
     s3 = set_s3_client(credentials)
     cf = set_cf_client(credentials)
+    ec2 = set_ec2_client(credentials)
 
+    # Create CloudFormation S3 Bucket & Upload CloudFormation templates
     create_s3_bucket(s3, s3_bucket_name, region)
-
-    # Also hard-coded in per-stack deployment. Cleanup somehow
+    # TODO Also hard-coded in per-stack deployment. Cleanup somehow
     cf_templates_list = ['base_network.template', 's3_vpc.template', 'route53_internalzone.template', 'sns_topic_subscriptions.template']
     upload_s3_object(s3, s3_bucket_name, environment, cf_directory, cf_templates_list)
     bucket_url = get_bucket_url(s3_bucket_name, environment)
@@ -423,10 +446,18 @@ def main(argv):
 #        sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, 'prod-SNS-Topic-Subscriptions')
 #       sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
 
+    # Create EC2 Key Pair
+    ec2_key_name = set_ec2_key_name(raw_account_name, environment)
+    ec2_key = create_ec2_key_pair(ec2, ec2_key_name)
+
     # Print Stack Outputs
     print('\nStack Outputs: ')
     print('Internal Hosted Zone ID: ' + internal_hosted_zone)
     print('SNS Topic ARN: ' +  sns_topic_arn)
+
+    print('\nEC2 Key Pair: ')
+    print('Key Name: ' + ec2_key_name)
+    print('Key Value: ' + ec2_key)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
