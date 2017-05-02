@@ -62,19 +62,19 @@ def set_ec2_client(credentials):
 
 def set_s3_bucket_name(ddi, raw_account_name):
     # Convert raw_account_name to s3-formatted bucket name
-    account_name = raw_account_name.replace(" ", "-").lower()
-    s3_bucket_name =  ddi + "-" + account_name + '-cf-templates'
+    account_name = raw_account_name.replace(' ', '-').lower()
+    s3_bucket_name =  ddi + '-' + account_name + '-cf-templates'
     return s3_bucket_name
 
-def set_ec2_key_name(raw_account_name, environment):
+def set_ec2_key_name(raw_account_name, environment, region):
     # Convert raw_account_name to ec2 key name
-    account_name = raw_account_name.replace(" ", "-").lower()
+    account_name = raw_account_name.replace(' ', '-').lower()
     environment = environment.lower()
-    ec2_key_name =  environment + "-" + account_name
+    ec2_key_name =  region + '-' + environment + '-' + account_name
     return ec2_key_name
 
 def set_sns_topic_name(raw_sns_topic_name):
-    sns_topic_name = raw_sns_topic_name.replace(" ", "-").lower()
+    sns_topic_name = raw_sns_topic_name.replace(' ', '-').lower()
     return sns_topic_name
 
 def create_s3_bucket(s3, s3_bucket_name, region):
@@ -460,7 +460,7 @@ def main(argv):
 #       sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
 
     # Create EC2 Key Pair, output to file
-    ec2_key_name = set_ec2_key_name(raw_account_name, environment)
+    ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
     ec2_key = create_ec2_key_pair(ec2, ec2_key_name)
     ec2_key_file_name = ec2_key_name + '.pem'
     write_file(ec2_key_file_name, ec2_key)
