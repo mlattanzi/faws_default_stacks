@@ -63,7 +63,7 @@ def set_ec2_client(credentials):
 def set_s3_bucket_name(ddi, raw_account_name):
     # Convert raw_account_name to s3-formatted bucket name
     account_name = raw_account_name.replace(" ", "-").lower()
-    s3_bucket_name =  ddi + "-" + account_name
+    s3_bucket_name =  ddi + "-" + account_name + '-cf-templates'
     return s3_bucket_name
 
 def set_ec2_key_name(raw_account_name, environment):
@@ -339,6 +339,13 @@ def create_ec2_key_pair(ec2, ec2_key_name):
     ec2_key = key_pair['KeyMaterial']
     return ec2_key
 
+def write_file(file_name, file_content):
+    output_file_name = file_name
+    # Opens output file, if file exists it will be overwritten
+    output_file = open(output_file_name, 'w+')
+    output_file.write(file_content + '\n')
+    output_file.close()
+
 def main(argv):
     print('NOTE: Please run "faws env" and set your environment variables before running this script.')
 
@@ -452,9 +459,11 @@ def main(argv):
 #        sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, 'prod-SNS-Topic-Subscriptions')
 #       sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
 
-    # Create EC2 Key Pair
+    # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment)
     ec2_key = create_ec2_key_pair(ec2, ec2_key_name)
+    ec2_key_file_name = ec2_key_name + '.pem'
+    write_file(ec2_key_file_name, ec2_key)
 
     # Print Stack Outputs
     print('\nStack Outputs: ')
@@ -462,6 +471,7 @@ def main(argv):
     print('SNS Topic ARN: ' +  sns_topic_arn)
 
     print('\nEC2 Key Pair: ')
+    print('Key File Created: ' + ec2_key_file_name)
     print('Key Name: ' + ec2_key_name)
     print('Key Value:\n' + ec2_key)
 
