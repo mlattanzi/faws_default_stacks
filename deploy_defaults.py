@@ -73,6 +73,10 @@ def set_ec2_key_name(raw_account_name, environment):
     ec2_key_name =  environment + "-" + account_name
     return ec2_key_name
 
+def set_sns_topic_name(raw_sns_topic_name):
+    sns_topic_name = raw_sns_topic_name.replace(" ", "-").lower()
+    return sns_topic_name
+
 def create_s3_bucket(s3, s3_bucket_name, region):
     bucket = s3.create_bucket(Bucket=s3_bucket_name, ACL='private')
     bucket_versioning = s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
@@ -121,6 +125,7 @@ def get_cf_stack_outputs(cf, stack_name):
     return stack_outputs
 
 def get_stack_status(cf, stack_name):
+    # Loop until stack is done building, then return True
     stack_status = ''
     while stack_status != 'CREATE_COMPLETE':
         stack_description = cf.describe_stacks(StackName=stack_name)
@@ -282,7 +287,8 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     sns_protocol_1 = cf_parameters_list['SubscriptionProtocol1']
     sns_protocol_2 = cf_parameters_list['SubscriptionProtocol2']
     sns_protocol_3 = cf_parameters_list['SubscriptionProtocol3']
-    sns_topic_name = cf_parameters_list['DisplayName']
+    raw_sns_topic_name = cf_parameters_list['DisplayName']
+    sns_topic_name = set_sns_topic_name(raw_sns_topic_name)
 
     stack = cf.create_stack(
         StackName=sns_topic_subscriptions_stack_name,
@@ -337,7 +343,7 @@ def main(argv):
     print('NOTE: Please run "faws env" and set your environment variables before running this script.')
 
     # Collect Parameters
-    print('Please enter parameters. Leave blank to use default values.')
+    print('Please enter parameters. Leave blank to use (default) values.')
 
     # Script Parameters
     print('\nScript Parameters: ')
@@ -372,7 +378,7 @@ def main(argv):
 
     # SNS Topic Subscription Parameters
     print('\nSNS Topic Subscription Parameters: ')
-    sns_topic_name = raw_input('SNS Topic Name: ')
+    raw_sns_topic_name = raw_input('SNS Topic Name: ')
     sns_protocol_1 = raw_input('SNS Protocol 1 (email): ')
     if sns_protocol_1 == '': sns_protocol_1 = 'email'
     sns_endpoint_1 = raw_input('SNS Endpoint 1: ')
@@ -427,7 +433,7 @@ def main(argv):
     route53_internalzone_stack_name = deploy_route53_internalzone_cf_stack(cf, bucket_url, route53_internalzone_cf_parameters_list)
 
     # Define SNS Topic Subscription parameters, Deploy Stack
-    sns_topic_subscriptions_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'SNS-Topic-Subscriptions', 'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1, 'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2, 'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3, 'DisplayName': sns_topic_name }
+    sns_topic_subscriptions_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'SNS-Topic-Subscriptions', 'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1, 'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2, 'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3, 'DisplayName': raw_sns_topic_name }
     sns_topic_subscriptions_stack_name = deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, sns_topic_subscriptions_cf_parameters_list)
 
     # Print Route53 Internal Zone and SNS Topic Subscription stack outputs once complete
@@ -457,7 +463,7 @@ def main(argv):
 
     print('\nEC2 Key Pair: ')
     print('Key Name: ' + ec2_key_name)
-    print('Key Value: ' + ec2_key)
+    print('Key Value:\n' + ec2_key)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
