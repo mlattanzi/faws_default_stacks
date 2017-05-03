@@ -436,9 +436,6 @@ def main(argv):
     # Verify Base Network stack completed deploying, set Base Network Stack Outputs as variables
     if get_stack_complete(cf, base_network_stack_name) == True:
         base_network_stack_outputs = get_cf_stack_outputs(cf, base_network_stack_name)
-    # FOR TESTING
-#    if get_stack_complete(cf, 'prod-BaseNetwork') == True:
-#       base_network_stack_outputs = get_cf_stack_outputs(cf, 'prod-BaseNetwork')
 
     vpcid = base_network_stack_outputs['VPCID']
     route_table_public = base_network_stack_outputs['RouteTablePublic']
@@ -468,14 +465,6 @@ def main(argv):
     if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
         sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, sns_topic_subscriptions_stack_name)
         sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
-
-    # FOR TESTING
-#    if get_stack_complete(cf, 'prod-Route53-InternalZone') == True:
-#        route53_internalzone_stack_outputs = get_cf_stack_outputs(cf, 'prod-Route53-InternalZone')
-#       internal_hosted_zone = route53_internalzone_stack_outputs['InternalHostedZone']
-#    if get_stack_complete(cf, 'prod-SNS-Topic-Subscriptions') == True:
-#        sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, 'prod-SNS-Topic-Subscriptions')
-#       sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
 
     # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
