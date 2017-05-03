@@ -449,22 +449,18 @@ def main(argv):
     bucket_url = get_bucket_url(s3_bucket_name, environment)
 
     # Define Base Network parameters, Deploy Stack
-    # TODO Verify stack status - if it is deployed skip over (for all stacks)
     base_network_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'BaseNetwork', 'AvailabilityZoneCount': az_count, 'CIDRRange': cidr, 'Environment': environment}
     base_network_stack_name = deploy_base_network_cf_stack(cf, bucket_url, base_network_cf_parameters_list)
     # Verify stack build completed, store dictionary of stack resources
     if get_stack_complete(cf, base_network_stack_name) == True:
         base_network_stack_resources = get_stack_resources(cf, base_network_stack_name)
-    # Verify Base Network stack completed deploying, set Base Network Stack Outputs as variables TODO Refactor this portion and utilize the above get resources - outputs are useless if we are juset getting resources
-    if get_stack_complete(cf, base_network_stack_name) == True:
-        base_network_stack_outputs = get_cf_stack_outputs(cf, base_network_stack_name)
 
-    vpcid = base_network_stack_outputs['VPCID']
-    route_table_public = base_network_stack_outputs['RouteTablePublic']
-    route_table_private_az1 = base_network_stack_outputs['RouteTablePrivateAZ1']
-    route_table_private_az2 = base_network_stack_outputs['RouteTablePrivateAZ2']
+    vpcid = base_network_stack_resources['VPCBase']
+    route_table_public = base_network_stack_resources['RouteTablePublic']
+    route_table_private_az1 = base_network_stack_resources['RouteTablePrivateAZ1']
+    route_table_private_az2 = base_network_stack_resources['RouteTablePrivateAZ2']
     if az_count == 3:
-        route_table_private_az3 = base_network_stack_outputs['RouteTablePrivateAZ3']
+        route_table_private_az3 = base_network_stack_resources['RouteTablePrivateAZ3']
     else:
         route_table_private_az3 = None
 
@@ -488,14 +484,6 @@ def main(argv):
     if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
         sns_topic_subscriptions_stack_resources = get_stack_resources(cf, sns_topic_subscriptions_stack_name)
 
-    # Print Route53 Internal Zone and SNS Topic Subscription stack outputs once complete TODO Refactor this using the above resource outputs
-    if get_stack_complete(cf, route53_internalzone_stack_name) == True:
-        route53_internalzone_stack_outputs = get_cf_stack_outputs(cf, route53_internalzone_stack_name)
-        internal_hosted_zone = route53_internalzone_stack_outputs['InternalHostedZone']
-    if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
-        sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, sns_topic_subscriptions_stack_name)
-        sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
-
     # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
     ec2_key = create_ec2_key_pair(ec2, ec2_key_name)
@@ -505,8 +493,11 @@ def main(argv):
 
     # Print Stack Outputs
     print('\nStack Outputs: ')
-    print('Internal Hosted Zone ID: ' + internal_hosted_zone)
-    print('SNS Topic ARN: ' +  sns_topic_arn)
+    print_stack_resources(base_network_stack_name, base_network_stack_resources)
+    print_stack_resources(s3_vpc_endpoint_stack_name, s3_vpc_endpoint_stack_resources)
+    print_stack_resources(route53_internalzone_stack_name, route53_internalzone_stack_resources)
+    print_stack_resources(sns_topic_subscriptions_stack_name, sns_topic_subscriptions_stack_resources)
+
     if not ec2_key == None:
         print('\nEC2 Key Pair: ')
         print('Key File Created: ' + ec2_key_file_name)
@@ -514,12 +505,6 @@ def main(argv):
         print('Key Value:\n' + ec2_key)
     else:
         print('\nEC2 Key "' + ec2_key_name + '" already exists.')
-
-    # Get and Print Stack Resources TODO (Proof of Concept, need to determine best way to apply this.)
-    print_stack_resources(base_network_stack_name, base_network_stack_resources)
-    print_stack_resources(s3_vpc_endpoint_stack_name, s3_vpc_endpoint_stack_resources)
-    print_stack_resources(route53_internalzone_stack_name, route53_internalzone_stack_resources)
-    print_stack_resources(sns_topic_subscriptions_stack_name, sns_topic_subscriptions_stack_resources)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
