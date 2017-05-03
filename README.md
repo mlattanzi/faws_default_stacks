@@ -38,7 +38,7 @@ CloudFormation Template Directory Path: /Users/matt6757/scripts/cftemplates
 
 Account Parameters:
 Rackspace Account Number: 981868
-Rackspace Account Name: Matt Lattanzi FAWS Test
+Rackspace Account Name: Matt Latt
 
 VPC Parameters:
 Region (us-east-1): us-west-1
@@ -53,42 +53,73 @@ Route53 Internal Zone Parameters:
 Internal Zone Name (prod):
 
 SNS Topic Subscription Parameters:
-SNS Topic Name: Matt Lattanzi Test Topic
+SNS Topic Name: mattlatt
 SNS Protocol 1 (email):
-SNS Endpoint 1: matt.lattanzi.test@rackspace.com
+SNS Endpoint 1: matt.latt@rackspace.com
 SNS Protocol 2 (email):
 SNS Endpoint 2:
 SNS Protocol 3 (email):
 SNS Endpoint 3:
 
 Stack Outputs:
-Internal Hosted Zone ID: Z3JGU2KXEVBPHT
-SNS Topic ARN: arn:aws:sns:us-west-1:057866020917:matt-lattanzi-test-topic
+
+prod-BaseNetwork Resources:
+VPCBase: vpc-f0d15494
+IGWBase: igw-931116f6
+RouteTablePublic: rtb-f2433d96
+RoutePublicDefault: prod-Route-2E0MNR3AFKF
+PublicNetAZ2: subnet-d45203b0
+RouteAssociationPrivateAZ2Default: rtbassoc-a21eefc5
+VGAIGWBase: prod-VGAIG-1C8KCA5IG3YRB
+PublicNetAZ1: subnet-336f0d6b
+NATAZ2Route: prod-NATAZ-11HJQZ3TT0RPD
+EIPNATAZ2: 13.56.34.196
+EIPNATAZ1: 52.52.179.120
+RouteTablePrivateAZ2: rtb-cc443aa8
+NATAZ2: nat-0f37729c20d4dc9fe
+RouteAssociationPublicAZ1Default: rtbassoc-741eef13
+NATAZ1: nat-00827ff049aa06d6f
+PrivateNetAZ1: subnet-1f6e0c47
+PrivateNetAZ2: subnet-8c5908e8
+NATAZ1Route: prod-NATAZ-1MZABJMUKGTRU
+RouteTablePrivateAZ1: rtb-68453b0c
+RouteAssociationPrivateAZ1Default: rtbassoc-a11eefc6
+RouteAssociationPublicAZ2Default: rtbassoc-751eef12
+
+prod-S3-VPC-Endpoint Resources:
+VPCEndpoint: vpce-e3c6308a
+
+prod-Route53-InternalZone Resources:
+InternalHostedZone: Z1CB57EPB5HISC
+
+prod-SNS-Topic-Subscriptions Resources:
+MySNSTopic: arn:aws:sns:us-west-1:057866020917:mattlatt
 
 EC2 Key Pair:
-Key Name: production-matt-lattanzi-faws-test
+Key File Created: us-west-1-production-matt-latt.pem
+Key Name: us-west-1-production-matt-latt
 Key Value:
 -----BEGIN RSA PRIVATE KEY-----
-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
+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
 -----END RSA PRIVATE KEY-----
 ```
