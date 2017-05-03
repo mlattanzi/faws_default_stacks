@@ -124,7 +124,7 @@ def get_cf_stack_outputs(cf, stack_name):
 
     return stack_outputs
 
-def get_stack_status(cf, stack_name):
+def get_stack_complete(cf, stack_name):
     # Loop until stack is done building, then return True
     stack_status = ''
     while stack_status != 'CREATE_COMPLETE':
@@ -133,6 +133,17 @@ def get_stack_status(cf, stack_name):
         if stack_status != 'CREATE_COMPLETE':
             sleep(20)
     return True
+
+def get_stack_deployed(cf, stack_name):
+    # Determine if stack is deployed, return value
+    try:
+        cf.describe_stacks(StackName=stack_name)
+    except:
+        stack_deployed = False
+    else:
+        stack_deployed = True
+
+    return stack_deployed
 
 def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
     cf_object = 'base_network.template'
@@ -154,53 +165,54 @@ def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
 
     base_network_stack_name = cf_parameters_list['stack_prefix']+'-'+cf_parameters_list['cf_stack_name']
 
-    stack = cf.create_stack(
-        StackName=base_network_stack_name,
-        TemplateURL=cf_template_url,
-        Parameters=[
-            {
-                'ParameterKey': 'AvailabilityZoneCount',
-                'ParameterValue': az_count,
-            },
-            {
-                'ParameterKey': 'CIDRRange',
-                'ParameterValue': cf_parameters_list['CIDRRange'],
-            },
-            {
-                'ParameterKey': 'PublicSubnetAZ1',
-                'ParameterValue': public_subnet_az1
-            },
-            {
-                'ParameterKey': 'PublicSubnetAZ2',
-                'ParameterValue': public_subnet_az2
-            },
-            {
-                'ParameterKey': 'PublicSubnetAZ3',
-                'ParameterValue': public_subnet_az3
-            },
-            {
-                'ParameterKey': 'PrivateSubnetAZ1',
-                'ParameterValue': private_subnet_az1
-            },
-            {
-                'ParameterKey': 'PrivateSubnetAZ2',
-                'ParameterValue': private_subnet_az2
-            },
-            {
-                'ParameterKey': 'PrivateSubnetAZ3',
-                'ParameterValue': private_subnet_az3
-            },
-            {
-                'ParameterKey': 'Environment',
-                'ParameterValue': cf_parameters_list['Environment'],
-            }
-        ],
-        TimeoutInMinutes=30,
-        Capabilities=[
-            'CAPABILITY_IAM',
-        ],
-        OnFailure='ROLLBACK'
-    )
+    if get_stack_deployed(cf, base_network_stack_name) == False:
+        stack = cf.create_stack(
+            StackName=base_network_stack_name,
+            TemplateURL=cf_template_url,
+            Parameters=[
+                {
+                    'ParameterKey': 'AvailabilityZoneCount',
+                    'ParameterValue': az_count,
+                },
+                {
+                    'ParameterKey': 'CIDRRange',
+                    'ParameterValue': cf_parameters_list['CIDRRange'],
+                },
+                {
+                    'ParameterKey': 'PublicSubnetAZ1',
+                    'ParameterValue': public_subnet_az1
+                },
+                {
+                    'ParameterKey': 'PublicSubnetAZ2',
+                    'ParameterValue': public_subnet_az2
+                },
+                {
+                    'ParameterKey': 'PublicSubnetAZ3',
+                    'ParameterValue': public_subnet_az3
+                },
+                {
+                    'ParameterKey': 'PrivateSubnetAZ1',
+                    'ParameterValue': private_subnet_az1
+                },
+                {
+                    'ParameterKey': 'PrivateSubnetAZ2',
+                    'ParameterValue': private_subnet_az2
+                },
+                {
+                    'ParameterKey': 'PrivateSubnetAZ3',
+                    'ParameterValue': private_subnet_az3
+                },
+                {
+                    'ParameterKey': 'Environment',
+                    'ParameterValue': cf_parameters_list['Environment'],
+                }
+            ],
+            TimeoutInMinutes=30,
+            Capabilities=[
+                'CAPABILITY_IAM',
+            ],
+            OnFailure='ROLLBACK'
+        )
 
     return base_network_stack_name
 
@@ -217,25 +229,26 @@ def deploy_s3_vpc_endpoint_cf_stack(cf, bucket_url, cf_parameters_list):
     else:
         route_table_list = cf_parameters_list['route_table_public'] + ',' + cf_parameters_list['route_table_private_az1'] + ',' + cf_parameters_list['route_table_private_az2'] + ',' + cf_parameters_list['route_table_private_az3']
 
-    stack = cf.create_stack(
-        StackName=s3_vpc_endpoint_stack_name,
-        TemplateURL=cf_template_url,
-        Parameters=[
-            {
-                'ParameterKey': 'VPCID',
-                'ParameterValue': vpcid,
-            },
-            {
-                'ParameterKey': 'RouteTableIdsList',
-                'ParameterValue': route_table_list
-            }
-        ],
-        TimeoutInMinutes=30,
-        Capabilities=[
-            'CAPABILITY_IAM',
-        ],
-        OnFailure='ROLLBACK'
-    )
+    if get_stack_deployed(cf, s3_vpc_endpoint_stack_name) == False:
+        stack = cf.create_stack(
+            StackName=s3_vpc_endpoint_stack_name,
+            TemplateURL=cf_template_url,
+            Parameters=[
+                {
+                    'ParameterKey': 'VPCID',
+                    'ParameterValue': vpcid,
+                },
+                {
+                    'ParameterKey': 'RouteTableIdsList',
+                    'ParameterValue': route_table_list
+                }
+            ],
+            TimeoutInMinutes=30,
+            Capabilities=[
+                'CAPABILITY_IAM',
+            ],
+            OnFailure='ROLLBACK'
+        )
 
     return s3_vpc_endpoint_stack_name
 
@@ -249,29 +262,30 @@ def deploy_route53_internalzone_cf_stack(cf, bucket_url, cf_parameters_list):
     environment = cf_parameters_list['Environment']
     internal_zone_name = cf_parameters_list['InternalZoneName']
 
-    stack = cf.create_stack(
-        StackName=route53_internalzone_stack_name,
-        TemplateURL=cf_template_url,
-        Parameters=[
-            {
-                'ParameterKey': 'VPCID',
-                'ParameterValue': vpcid,
-            },
-            {
-                'ParameterKey': 'Environment',
-                'ParameterValue': environment
-            },
-            {
-                'ParameterKey': 'InternalZoneName',
-                'ParameterValue': internal_zone_name
-            }
-        ],
-        TimeoutInMinutes=30,
-        Capabilities=[
-            'CAPABILITY_IAM',
-        ],
-        OnFailure='ROLLBACK'
-    )
+    if get_stack_deployed(cf, route53_internalzone_stack_name) == False:
+        stack = cf.create_stack(
+            StackName=route53_internalzone_stack_name,
+            TemplateURL=cf_template_url,
+            Parameters=[
+                {
+                    'ParameterKey': 'VPCID',
+                    'ParameterValue': vpcid,
+                },
+                {
+                    'ParameterKey': 'Environment',
+                    'ParameterValue': environment
+                },
+                {
+                    'ParameterKey': 'InternalZoneName',
+                    'ParameterValue': internal_zone_name
+                }
+            ],
+            TimeoutInMinutes=30,
+            Capabilities=[
+                'CAPABILITY_IAM',
+            ],
+            OnFailure='ROLLBACK'
+        )
 
     return route53_internalzone_stack_name
 
@@ -290,53 +304,57 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     raw_sns_topic_name = cf_parameters_list['DisplayName']
     sns_topic_name = set_sns_topic_name(raw_sns_topic_name)
 
-    stack = cf.create_stack(
-        StackName=sns_topic_subscriptions_stack_name,
-        TemplateURL=cf_template_url,
-        Parameters=[
-            {
-                'ParameterKey': 'SubscriptionEndpoint1',
-                'ParameterValue': sns_endpoint_1
-            },
-            {
-                'ParameterKey': 'SubscriptionEndpoint2',
-                'ParameterValue': sns_endpoint_2
-            },
-            {
-                'ParameterKey': 'SubscriptionEndpoint3',
-                'ParameterValue': sns_endpoint_3
-            },
-            {
-                'ParameterKey': 'SubscriptionProtocol1',
-                'ParameterValue': sns_protocol_1
-            },
-            {
-                'ParameterKey': 'SubscriptionProtocol2',
-                'ParameterValue': sns_protocol_2
-            },
-            {
-                'ParameterKey': 'SubscriptionProtocol3',
-                'ParameterValue': sns_protocol_3
-            },
-            {
-                'ParameterKey': 'DisplayName',
-                'ParameterValue': sns_topic_name
-            }
-        ],
-        TimeoutInMinutes=30,
-        Capabilities=[
-            'CAPABILITY_IAM',
-        ],
-        OnFailure='ROLLBACK'
-    )
+    if get_stack_deployed(cf, sns_topic_subscriptions_stack_name) == False:
+        stack = cf.create_stack(
+            StackName=sns_topic_subscriptions_stack_name,
+            TemplateURL=cf_template_url,
+            Parameters=[
+                {
+                    'ParameterKey': 'SubscriptionEndpoint1',
+                    'ParameterValue': sns_endpoint_1
+                },
+                {
+                    'ParameterKey': 'SubscriptionEndpoint2',
+                    'ParameterValue': sns_endpoint_2
+                },
+                {
+                    'ParameterKey': 'SubscriptionEndpoint3',
+                    'ParameterValue': sns_endpoint_3
+                },
+                {
+                    'ParameterKey': 'SubscriptionProtocol1',
+                    'ParameterValue': sns_protocol_1
+                },
+                {
+                    'ParameterKey': 'SubscriptionProtocol2',
+                    'ParameterValue': sns_protocol_2
+                },
+                {
+                    'ParameterKey': 'SubscriptionProtocol3',
+                    'ParameterValue': sns_protocol_3
+                },
+                {
+                    'ParameterKey': 'DisplayName',
+                    'ParameterValue': sns_topic_name
+                }
+            ],
+            TimeoutInMinutes=30,
+            Capabilities=[
+                'CAPABILITY_IAM',
+            ],
+            OnFailure='ROLLBACK'
+        )
 
     return sns_topic_subscriptions_stack_name
 
 def create_ec2_key_pair(ec2, ec2_key_name):
-    key_pair = ec2.create_key_pair(
-        KeyName=ec2_key_name
-    )
-    ec2_key = key_pair['KeyMaterial']
+    try:
+        key_pair = ec2.create_key_pair(
+            KeyName=ec2_key_name
+        )
+        ec2_key = key_pair['KeyMaterial']
+    except:
+        ec2_key = None
     return ec2_key
 
 def write_file(file_name, file_content):
@@ -416,11 +434,8 @@ def main(argv):
     base_network_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'BaseNetwork', 'AvailabilityZoneCount': az_count, 'CIDRRange': cidr, 'Environment': environment}
     base_network_stack_name = deploy_base_network_cf_stack(cf, bucket_url, base_network_cf_parameters_list)
     # Verify Base Network stack completed deploying, set Base Network Stack Outputs as variables
-    if get_stack_status(cf, base_network_stack_name) == True:
+    if get_stack_complete(cf, base_network_stack_name) == True:
         base_network_stack_outputs = get_cf_stack_outputs(cf, base_network_stack_name)
-    # FOR TESTING
-#    if get_stack_status(cf, 'prod-BaseNetwork') == True:
-#       base_network_stack_outputs = get_cf_stack_outputs(cf, 'prod-BaseNetwork')
 
     vpcid = base_network_stack_outputs['VPCID']
     route_table_public = base_network_stack_outputs['RouteTablePublic']
@@ -444,36 +459,32 @@ def main(argv):
     sns_topic_subscriptions_stack_name = deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, sns_topic_subscriptions_cf_parameters_list)
 
     # Print Route53 Internal Zone and SNS Topic Subscription stack outputs once complete
-    if get_stack_status(cf, route53_internalzone_stack_name) == True:
+    if get_stack_complete(cf, route53_internalzone_stack_name) == True:
         route53_internalzone_stack_outputs = get_cf_stack_outputs(cf, route53_internalzone_stack_name)
         internal_hosted_zone = route53_internalzone_stack_outputs['InternalHostedZone']
-    if get_stack_status(cf, sns_topic_subscriptions_stack_name) == True:
+    if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
         sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, sns_topic_subscriptions_stack_name)
         sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
-
-    # FOR TESTING
-#    if get_stack_status(cf, 'prod-Route53-InternalZone') == True:
-#        route53_internalzone_stack_outputs = get_cf_stack_outputs(cf, 'prod-Route53-InternalZone')
-#       internal_hosted_zone = route53_internalzone_stack_outputs['InternalHostedZone']
-#    if get_stack_status(cf, 'prod-SNS-Topic-Subscriptions') == True:
-#        sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, 'prod-SNS-Topic-Subscriptions')
-#       sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
 
     # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
     ec2_key = create_ec2_key_pair(ec2, ec2_key_name)
-    ec2_key_file_name = ec2_key_name + '.pem'
-    write_file(ec2_key_file_name, ec2_key)
+    if not ec2_key == None:
+        ec2_key_file_name = ec2_key_name + '.pem'
+        write_file(ec2_key_file_name, ec2_key)
 
     # Print Stack Outputs
     print('\nStack Outputs: ')
     print('Internal Hosted Zone ID: ' + internal_hosted_zone)
     print('SNS Topic ARN: ' +  sns_topic_arn)
+    if not ec2_key == None:
+        print('\nEC2 Key Pair: ')
+        print('Key File Created: ' + ec2_key_file_name)
+        print('Key Name: ' + ec2_key_name)
+        print('Key Value:\n' + ec2_key)
+    else:
+        print('\nEC2 Key "' + ec2_key_name + '" already exists.')
 
-    print('\nEC2 Key Pair: ')
-    print('Key File Created: ' + ec2_key_file_name)
-    print('Key Name: ' + ec2_key_name)
-    print('Key Value:\n' + ec2_key)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
