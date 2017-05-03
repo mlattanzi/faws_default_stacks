@@ -124,6 +124,20 @@ def get_cf_stack_outputs(cf, stack_name):
 
     return stack_outputs
 
+def get_stack_resources(cf, stack_name):
+  stack_resource_list = cf.list_stack_resources(StackName=stack_name)
+  stack_summaries = stack_resource_list['StackResourceSummaries']
+
+  stack_resources = {}
+  position = 0
+  for element in stack_summaries:
+      key = element['LogicalResourceId']
+      value = element['PhysicalResourceId']
+      stack_resources.update({key:value})
+      position += 1
+
+  return stack_resources
+
 def get_stack_complete(cf, stack_name):
     # Loop until stack is done building, then return True
     stack_status = ''
@@ -144,6 +158,11 @@ def get_stack_deployed(cf, stack_name):
         stack_deployed = True
 
     return stack_deployed
+
+def print_stack_resources(stack_name, stack_resources_dict):
+    print('\n' + stack_name + ' Resources: ')
+    for key in stack_resources_dict:
+        print(key + ': ' + stack_resources_dict[key])
 
 def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
     cf_object = 'base_network.template'
@@ -430,19 +449,18 @@ def main(argv):
     bucket_url = get_bucket_url(s3_bucket_name, environment)
 
     # Define Base Network parameters, Deploy Stack
-    # TODO Verify stack status - if it is deployed skip over (for all stacks)
     base_network_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'BaseNetwork', 'AvailabilityZoneCount': az_count, 'CIDRRange': cidr, 'Environment': environment}
     base_network_stack_name = deploy_base_network_cf_stack(cf, bucket_url, base_network_cf_parameters_list)
-    # Verify Base Network stack completed deploying, set Base Network Stack Outputs as variables
+    # Verify stack build completed, store dictionary of stack resources
     if get_stack_complete(cf, base_network_stack_name) == True:
-        base_network_stack_outputs = get_cf_stack_outputs(cf, base_network_stack_name)
+        base_network_stack_resources = get_stack_resources(cf, base_network_stack_name)
 
-    vpcid = base_network_stack_outputs['VPCID']
-    route_table_public = base_network_stack_outputs['RouteTablePublic']
-    route_table_private_az1 = base_network_stack_outputs['RouteTablePrivateAZ1']
-    route_table_private_az2 = base_network_stack_outputs['RouteTablePrivateAZ2']
+    vpcid = base_network_stack_resources['VPCBase']
+    route_table_public = base_network_stack_resources['RouteTablePublic']
+    route_table_private_az1 = base_network_stack_resources['RouteTablePrivateAZ1']
+    route_table_private_az2 = base_network_stack_resources['RouteTablePrivateAZ2']
     if az_count == 3:
-        route_table_private_az3 = base_network_stack_outputs['RouteTablePrivateAZ3']
+        route_table_private_az3 = base_network_stack_resources['RouteTablePrivateAZ3']
     else:
         route_table_private_az3 = None
 
@@ -458,13 +476,13 @@ def main(argv):
     sns_topic_subscriptions_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'SNS-Topic-Subscriptions', 'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1, 'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2, 'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3, 'DisplayName': raw_sns_topic_name }
     sns_topic_subscriptions_stack_name = deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, sns_topic_subscriptions_cf_parameters_list)
 
-    # Print Route53 Internal Zone and SNS Topic Subscription stack outputs once complete
+    # Verify stack build completed, store dictionary of stack resources - these are grouped because they can all deploy at the same time, but BaseNetwork needs to run first
+    if get_stack_complete(cf, s3_vpc_endpoint_stack_name) == True:
+        s3_vpc_endpoint_stack_resources = get_stack_resources(cf, s3_vpc_endpoint_stack_name)
     if get_stack_complete(cf, route53_internalzone_stack_name) == True:
-        route53_internalzone_stack_outputs = get_cf_stack_outputs(cf, route53_internalzone_stack_name)
-        internal_hosted_zone = route53_internalzone_stack_outputs['InternalHostedZone']
+        route53_internalzone_stack_resources = get_stack_resources(cf, route53_internalzone_stack_name)
     if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
-        sns_topic_subscriptions_stack_outputs = get_cf_stack_outputs(cf, sns_topic_subscriptions_stack_name)
-        sns_topic_arn = sns_topic_subscriptions_stack_outputs['MySNSTopicTopicARN']
+        sns_topic_subscriptions_stack_resources = get_stack_resources(cf, sns_topic_subscriptions_stack_name)
 
     # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
@@ -475,8 +493,11 @@ def main(argv):
 
     # Print Stack Outputs
     print('\nStack Outputs: ')
-    print('Internal Hosted Zone ID: ' + internal_hosted_zone)
-    print('SNS Topic ARN: ' +  sns_topic_arn)
+    print_stack_resources(base_network_stack_name, base_network_stack_resources)
+    print_stack_resources(s3_vpc_endpoint_stack_name, s3_vpc_endpoint_stack_resources)
+    print_stack_resources(route53_internalzone_stack_name, route53_internalzone_stack_resources)
+    print_stack_resources(sns_topic_subscriptions_stack_name, sns_topic_subscriptions_stack_resources)
+
     if not ec2_key == None:
         print('\nEC2 Key Pair: ')
         print('Key File Created: ' + ec2_key_file_name)
@@ -484,7 +505,6 @@ def main(argv):
         print('Key Value:\n' + ec2_key)
     else:
         print('\nEC2 Key "' + ec2_key_name + '" already exists.')
-
 
 if __name__ == "__main__":
    main(sys.argv[1:])
