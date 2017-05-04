@@ -5,8 +5,10 @@ import os
 import boto3
 from time import sleep
 
+
 def set_credentials(region=''):
-    # Get environment variables and set as variables to create auth client request
+    # Get environment variables and set as variables to create auth client
+    # request
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
     aws_session_token = os.environ.get('AWS_SESSION_TOKEN')
@@ -15,7 +17,8 @@ def set_credentials(region=''):
     if region_name == None:
         region_name = region
 
-    # If any of the Access Credentials were not provided, set them on the command line
+    # If any of the Access Credentials were not provided, set them on the
+    # command line
     if aws_access_key_id == None or aws_secret_access_key == None or aws_session_token == None:
         print('\nAWS Credentials: ')
     if aws_access_key_id == None:
@@ -25,7 +28,8 @@ def set_credentials(region=''):
     if aws_session_token == None:
         aws_session_token = raw_input('AWS_SESSION_TOKEN: ')
 
-    return({'aws_access_key_id':aws_access_key_id, 'aws_secret_access_key':aws_secret_access_key, 'aws_session_token':aws_session_token, 'region_name': region_name})
+    return({'aws_access_key_id': aws_access_key_id, 'aws_secret_access_key': aws_secret_access_key, 'aws_session_token': aws_session_token, 'region_name': region_name})
+
 
 def set_s3_client(credentials):
     # Create S3 client
@@ -38,6 +42,7 @@ def set_s3_client(credentials):
     )
     return s3
 
+
 def set_cf_client(credentials):
     # Create CloudFormation client
     cf = boto3.client(
@@ -48,6 +53,7 @@ def set_cf_client(credentials):
         region_name=credentials['region_name']
     )
     return cf
+
 
 def set_ec2_client(credentials):
     # Create EC2 client
@@ -60,26 +66,31 @@ def set_ec2_client(credentials):
     )
     return ec2
 
+
 def set_s3_bucket_name(ddi, raw_account_name):
     # Convert raw_account_name to s3-formatted bucket name
     account_name = raw_account_name.replace(' ', '-').lower()
-    s3_bucket_name =  ddi + '-' + account_name + '-cf-templates'
+    s3_bucket_name = ddi + '-' + account_name + '-cf-templates'
     return s3_bucket_name
+
 
 def set_ec2_key_name(raw_account_name, environment, region):
     # Convert raw_account_name to ec2 key name
     account_name = raw_account_name.replace(' ', '-').lower()
     environment = environment.lower()
-    ec2_key_name =  region + '-' + environment + '-' + account_name
+    ec2_key_name = region + '-' + environment + '-' + account_name
     return ec2_key_name
+
 
 def set_sns_topic_name(raw_sns_topic_name):
     sns_topic_name = raw_sns_topic_name.replace(' ', '-').lower()
     return sns_topic_name
 
+
 def create_s3_bucket(s3, s3_bucket_name, region):
     bucket = s3.create_bucket(Bucket=s3_bucket_name, ACL='private')
-    bucket_versioning = s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
+    bucket_versioning = s3.put_bucket_versioning(
+        Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
     bucket_lifecycle = s3.put_bucket_lifecycle(
         Bucket=s3_bucket_name,
         LifecycleConfiguration={
@@ -96,19 +107,25 @@ def create_s3_bucket(s3, s3_bucket_name, region):
         }
     )
 
+
 def upload_s3_object(s3, s3_bucket_name, environment, cf_directory, cf_templates_list):
     for i, cf_file in enumerate(cf_templates_list):
-        s3.upload_file(cf_directory + '/' + cf_file, s3_bucket_name, environment.lower() + '/' + cf_file)
+        s3.upload_file(cf_directory + '/' + cf_file,
+                       s3_bucket_name, environment.lower() + '/' + cf_file)
+
 
 def get_bucket_url(s3_bucket_name, environment):
-    bucket_url = 'https://s3.amazonaws.com/' + s3_bucket_name + '/' + environment.lower()
+    bucket_url = 'https://s3.amazonaws.com/' + \
+        s3_bucket_name + '/' + environment.lower()
 
     return bucket_url
+
 
 def get_cf_template_url(bucket_url, cf_object):
     cf_template_url = bucket_url + '/' + cf_object
 
     return cf_template_url
+
 
 def get_cf_stack_outputs(cf, stack_name):
     stack_description = cf.describe_stacks(StackName=stack_name)
@@ -119,24 +136,26 @@ def get_cf_stack_outputs(cf, stack_name):
     for element in stack_outputs_list:
         key = stack_outputs_list[position]['OutputKey']
         value = stack_outputs_list[position]['OutputValue']
-        stack_outputs.update({key:value})
+        stack_outputs.update({key: value})
         position += 1
 
     return stack_outputs
 
+
 def get_stack_resources(cf, stack_name):
-  stack_resource_list = cf.list_stack_resources(StackName=stack_name)
-  stack_summaries = stack_resource_list['StackResourceSummaries']
+    stack_resource_list = cf.list_stack_resources(StackName=stack_name)
+    stack_summaries = stack_resource_list['StackResourceSummaries']
 
-  stack_resources = {}
-  position = 0
-  for element in stack_summaries:
-      key = element['LogicalResourceId']
-      value = element['PhysicalResourceId']
-      stack_resources.update({key:value})
-      position += 1
+    stack_resources = {}
+    position = 0
+    for element in stack_summaries:
+        key = element['LogicalResourceId']
+        value = element['PhysicalResourceId']
+        stack_resources.update({key: value})
+        position += 1
 
-  return stack_resources
+    return stack_resources
+
 
 def get_stack_complete(cf, stack_name):
     # Loop until stack is done building, then return True
@@ -147,6 +166,7 @@ def get_stack_complete(cf, stack_name):
         if stack_status != 'CREATE_COMPLETE':
             sleep(20)
     return True
+
 
 def get_stack_deployed(cf, stack_name):
     # Determine if stack is deployed, return value
@@ -159,10 +179,12 @@ def get_stack_deployed(cf, stack_name):
 
     return stack_deployed
 
+
 def print_stack_resources(stack_name, stack_resources_dict):
     print('\n' + stack_name + ' Resources: ')
     for key in stack_resources_dict:
         print(key + ': ' + stack_resources_dict[key])
+
 
 def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
     cf_object = 'base_network.template'
@@ -173,7 +195,7 @@ def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
     elif cf_parameters_list['AvailabilityZoneCount'] == '3':
         az_count = '3 AZs :: 6 Subnets'
 
-    #TODO better method for setting cidr
+    # TODO better method for setting cidr
     ip_base = cf_parameters_list['CIDRRange'][0:6]
     public_subnet_az1 = ip_base + '.0.0/22'
     public_subnet_az2 = ip_base + '.4.0/22'
@@ -182,7 +204,8 @@ def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
     private_subnet_az2 = ip_base + '.40.0/21'
     private_subnet_az3 = ip_base + '.8.0/21'
 
-    base_network_stack_name = cf_parameters_list['stack_prefix']+'-'+cf_parameters_list['cf_stack_name']
+    base_network_stack_name = cf_parameters_list['stack_prefix'] + \
+        '-' + cf_parameters_list['cf_stack_name']
 
     if get_stack_deployed(cf, base_network_stack_name) == False:
         stack = cf.create_stack(
@@ -235,18 +258,24 @@ def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
 
     return base_network_stack_name
 
+
 def deploy_s3_vpc_endpoint_cf_stack(cf, bucket_url, cf_parameters_list):
     cf_object = 's3_vpc.template'
     cf_template_url = get_cf_template_url(bucket_url, cf_object)
 
-    s3_vpc_endpoint_stack_name = cf_parameters_list['stack_prefix']+'-'+cf_parameters_list['cf_stack_name']
+    s3_vpc_endpoint_stack_name = cf_parameters_list['stack_prefix'] + \
+        '-' + cf_parameters_list['cf_stack_name']
 
     vpcid = cf_parameters_list['VPCID']
 
     if cf_parameters_list['route_table_private_az3'] == None:
-        route_table_list = cf_parameters_list['route_table_public'] + ',' + cf_parameters_list['route_table_private_az1'] + ',' + cf_parameters_list['route_table_private_az2']
+        route_table_list = cf_parameters_list['route_table_public'] + ',' + \
+            cf_parameters_list['route_table_private_az1'] + \
+            ',' + cf_parameters_list['route_table_private_az2']
     else:
-        route_table_list = cf_parameters_list['route_table_public'] + ',' + cf_parameters_list['route_table_private_az1'] + ',' + cf_parameters_list['route_table_private_az2'] + ',' + cf_parameters_list['route_table_private_az3']
+        route_table_list = cf_parameters_list['route_table_public'] + ',' + cf_parameters_list['route_table_private_az1'] + \
+            ',' + cf_parameters_list['route_table_private_az2'] + \
+            ',' + cf_parameters_list['route_table_private_az3']
 
     if get_stack_deployed(cf, s3_vpc_endpoint_stack_name) == False:
         stack = cf.create_stack(
@@ -271,11 +300,13 @@ def deploy_s3_vpc_endpoint_cf_stack(cf, bucket_url, cf_parameters_list):
 
     return s3_vpc_endpoint_stack_name
 
+
 def deploy_route53_internalzone_cf_stack(cf, bucket_url, cf_parameters_list):
     cf_object = 'route53_internalzone.template'
     cf_template_url = get_cf_template_url(bucket_url, cf_object)
 
-    route53_internalzone_stack_name = cf_parameters_list['stack_prefix']+'-'+cf_parameters_list['cf_stack_name']
+    route53_internalzone_stack_name = cf_parameters_list['stack_prefix'] + \
+        '-' + cf_parameters_list['cf_stack_name']
 
     vpcid = cf_parameters_list['VPCID']
     environment = cf_parameters_list['Environment']
@@ -308,11 +339,13 @@ def deploy_route53_internalzone_cf_stack(cf, bucket_url, cf_parameters_list):
 
     return route53_internalzone_stack_name
 
+
 def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     cf_object = 'sns_topic_subscriptions.template'
     cf_template_url = get_cf_template_url(bucket_url, cf_object)
 
-    sns_topic_subscriptions_stack_name = cf_parameters_list['stack_prefix']+'-'+cf_parameters_list['cf_stack_name']
+    sns_topic_subscriptions_stack_name = cf_parameters_list['stack_prefix'] + \
+        '-' + cf_parameters_list['cf_stack_name']
 
     sns_endpoint_1 = cf_parameters_list['SubscriptionEndpoint1']
     sns_endpoint_2 = cf_parameters_list['SubscriptionEndpoint2']
@@ -366,6 +399,7 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
 
     return sns_topic_subscriptions_stack_name
 
+
 def create_ec2_key_pair(ec2, ec2_key_name):
     try:
         key_pair = ec2.create_key_pair(
@@ -376,12 +410,14 @@ def create_ec2_key_pair(ec2, ec2_key_name):
         ec2_key = None
     return ec2_key
 
+
 def write_file(file_name, file_content):
     output_file_name = file_name
     # Opens output file, if file exists it will be overwritten
     output_file = open(output_file_name, 'w+')
     output_file.write(file_content + '\n')
     output_file.close()
+
 
 def main(argv):
     print('NOTE: Please run "faws env" and set your environment variables before running this script.')
@@ -392,6 +428,10 @@ def main(argv):
     # Script Parameters
     print('\nScript Parameters: ')
     cf_directory = raw_input('CloudFormation Template Directory Path: ')
+    # TODO Template names are hard-coded in per-stack deployment - Cleanup
+    # somehow?
+    cf_templates_list = ['base_network.template', 's3_vpc.template',
+                         'route53_internalzone.template', 'sns_topic_subscriptions.template']
 
     # Account Parameters
     print('\nAccount Parameters: ')
@@ -402,35 +442,44 @@ def main(argv):
     # VPC Parameters
     print('\nVPC Parameters: ')
     region = raw_input('Region (us-east-1): ')
-    if region == '': region = 'us-east-1'
+    if region == '':
+        region = 'us-east-1'
     environment = raw_input('Environment (Production): ')
-    if environment == '': environment = 'Production'
+    if environment == '':
+        environment = 'Production'
     stack_prefix = raw_input('Stack Prefix (prod): ')
-    if stack_prefix == '': stack_prefix = 'prod'
+    if stack_prefix == '':
+        stack_prefix = 'prod'
 
     # Base Network Parameters
     print('\nBase Network Parameters: ')
     az_count = raw_input('Availability Zone Count (2): ')
-    if az_count == '': az_count = '2'
+    if az_count == '':
+        az_count = '2'
     cidr = raw_input('CIDR Range (172.18.0.0/16): ')
-    if cidr == '': cidr = '172.18.0.0/16'
+    if cidr == '':
+        cidr = '172.18.0.0/16'
 
     # Route53 Internal Zone Parameters
     print('\nRoute53 Internal Zone Parameters: ')
     internal_zone_name = raw_input('Internal Zone Name (prod): ')
-    if internal_zone_name == '': internal_zone_name = 'prod'
+    if internal_zone_name == '':
+        internal_zone_name = 'prod'
 
     # SNS Topic Subscription Parameters
     print('\nSNS Topic Subscription Parameters: ')
     raw_sns_topic_name = raw_input('SNS Topic Name: ')
     sns_protocol_1 = raw_input('SNS Protocol 1 (email): ')
-    if sns_protocol_1 == '': sns_protocol_1 = 'email'
+    if sns_protocol_1 == '':
+        sns_protocol_1 = 'email'
     sns_endpoint_1 = raw_input('SNS Endpoint 1: ')
     sns_protocol_2 = raw_input('SNS Protocol 2 (email): ')
-    if sns_protocol_2 == '': sns_protocol_2 = 'email'
+    if sns_protocol_2 == '':
+        sns_protocol_2 = 'email'
     sns_endpoint_2 = raw_input('SNS Endpoint 2: ')
     sns_protocol_3 = raw_input('SNS Protocol 3 (email): ')
-    if sns_protocol_3 == '': sns_protocol_3 = 'email'
+    if sns_protocol_3 == '':
+        sns_protocol_3 = 'email'
     sns_endpoint_3 = raw_input('SNS Endpoint 3: ')
 
     # Set AWS Credentials
@@ -443,17 +492,19 @@ def main(argv):
 
     # Create CloudFormation S3 Bucket & Upload CloudFormation templates
     create_s3_bucket(s3, s3_bucket_name, region)
-    # TODO Also hard-coded in per-stack deployment. Cleanup somehow
-    cf_templates_list = ['base_network.template', 's3_vpc.template', 'route53_internalzone.template', 'sns_topic_subscriptions.template']
-    upload_s3_object(s3, s3_bucket_name, environment, cf_directory, cf_templates_list)
+    upload_s3_object(s3, s3_bucket_name, environment,
+                     cf_directory, cf_templates_list)
     bucket_url = get_bucket_url(s3_bucket_name, environment)
 
     # Define Base Network parameters, Deploy Stack
-    base_network_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'BaseNetwork', 'AvailabilityZoneCount': az_count, 'CIDRRange': cidr, 'Environment': environment}
-    base_network_stack_name = deploy_base_network_cf_stack(cf, bucket_url, base_network_cf_parameters_list)
+    base_network_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'BaseNetwork',
+                                       'AvailabilityZoneCount': az_count, 'CIDRRange': cidr, 'Environment': environment}
+    base_network_stack_name = deploy_base_network_cf_stack(
+        cf, bucket_url, base_network_cf_parameters_list)
     # Verify stack build completed, store dictionary of stack resources
     if get_stack_complete(cf, base_network_stack_name) == True:
-        base_network_stack_resources = get_stack_resources(cf, base_network_stack_name)
+        base_network_stack_resources = get_stack_resources(
+            cf, base_network_stack_name)
 
     vpcid = base_network_stack_resources['VPCBase']
     route_table_public = base_network_stack_resources['RouteTablePublic']
@@ -465,24 +516,35 @@ def main(argv):
         route_table_private_az3 = None
 
     # Define S3 VPC Endpoint parameters, Deploy Stack
-    s3_vpc_endpoint_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'S3-VPC-Endpoint', 'VPCID': vpcid, 'route_table_public': route_table_public, 'route_table_private_az1': route_table_private_az1, 'route_table_private_az2': route_table_private_az2, 'route_table_private_az3': route_table_private_az3 }
-    s3_vpc_endpoint_stack_name = deploy_s3_vpc_endpoint_cf_stack(cf, bucket_url, s3_vpc_endpoint_cf_parameters_list)
+    s3_vpc_endpoint_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'S3-VPC-Endpoint', 'VPCID': vpcid, 'route_table_public': route_table_public,
+                                          'route_table_private_az1': route_table_private_az1, 'route_table_private_az2': route_table_private_az2, 'route_table_private_az3': route_table_private_az3}
+    s3_vpc_endpoint_stack_name = deploy_s3_vpc_endpoint_cf_stack(
+        cf, bucket_url, s3_vpc_endpoint_cf_parameters_list)
 
     # Define Route53 Internal Zone parameters, Deploy Stack
-    route53_internalzone_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'Route53-InternalZone', 'VPCID': vpcid, 'Environment': environment, 'InternalZoneName': internal_zone_name }
-    route53_internalzone_stack_name = deploy_route53_internalzone_cf_stack(cf, bucket_url, route53_internalzone_cf_parameters_list)
+    route53_internalzone_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'Route53-InternalZone',
+                                               'VPCID': vpcid, 'Environment': environment, 'InternalZoneName': internal_zone_name}
+    route53_internalzone_stack_name = deploy_route53_internalzone_cf_stack(
+        cf, bucket_url, route53_internalzone_cf_parameters_list)
 
     # Define SNS Topic Subscription parameters, Deploy Stack
-    sns_topic_subscriptions_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name':'SNS-Topic-Subscriptions', 'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1, 'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2, 'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3, 'DisplayName': raw_sns_topic_name }
-    sns_topic_subscriptions_stack_name = deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, sns_topic_subscriptions_cf_parameters_list)
+    sns_topic_subscriptions_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'SNS-Topic-Subscriptions', 'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1,
+                                                  'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2, 'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3, 'DisplayName': raw_sns_topic_name}
+    sns_topic_subscriptions_stack_name = deploy_sns_topic_subscriptions_cf_stack(
+        cf, bucket_url, sns_topic_subscriptions_cf_parameters_list)
 
-    # Verify stack build completed, store dictionary of stack resources - these are grouped because they can all deploy at the same time, but BaseNetwork needs to run first
+    # Verify stack build completed, store dictionary of stack resources -
+    # these are grouped because they can all deploy at the same time, but
+    # BaseNetwork needs to run first
     if get_stack_complete(cf, s3_vpc_endpoint_stack_name) == True:
-        s3_vpc_endpoint_stack_resources = get_stack_resources(cf, s3_vpc_endpoint_stack_name)
+        s3_vpc_endpoint_stack_resources = get_stack_resources(
+            cf, s3_vpc_endpoint_stack_name)
     if get_stack_complete(cf, route53_internalzone_stack_name) == True:
-        route53_internalzone_stack_resources = get_stack_resources(cf, route53_internalzone_stack_name)
+        route53_internalzone_stack_resources = get_stack_resources(
+            cf, route53_internalzone_stack_name)
     if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
-        sns_topic_subscriptions_stack_resources = get_stack_resources(cf, sns_topic_subscriptions_stack_name)
+        sns_topic_subscriptions_stack_resources = get_stack_resources(
+            cf, sns_topic_subscriptions_stack_name)
 
     # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
@@ -493,10 +555,14 @@ def main(argv):
 
     # Print Stack Outputs
     print('\nStack Outputs: ')
-    print_stack_resources(base_network_stack_name, base_network_stack_resources)
-    print_stack_resources(s3_vpc_endpoint_stack_name, s3_vpc_endpoint_stack_resources)
-    print_stack_resources(route53_internalzone_stack_name, route53_internalzone_stack_resources)
-    print_stack_resources(sns_topic_subscriptions_stack_name, sns_topic_subscriptions_stack_resources)
+    print_stack_resources(base_network_stack_name,
+                          base_network_stack_resources)
+    print_stack_resources(s3_vpc_endpoint_stack_name,
+                          s3_vpc_endpoint_stack_resources)
+    print_stack_resources(route53_internalzone_stack_name,
+                          route53_internalzone_stack_resources)
+    print_stack_resources(sns_topic_subscriptions_stack_name,
+                          sns_topic_subscriptions_stack_resources)
 
     if not ec2_key == None:
         print('\nEC2 Key Pair: ')
@@ -506,5 +572,6 @@ def main(argv):
     else:
         print('\nEC2 Key "' + ec2_key_name + '" already exists.')
 
+
 if __name__ == "__main__":
-   main(sys.argv[1:])
+    main(sys.argv[1:])
