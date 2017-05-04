@@ -180,6 +180,39 @@ def get_stack_deployed(cf, stack_name):
     return stack_deployed
 
 
+def get_template_defaults(**kwargs):
+    # This function can take stack_name for an already deployed stack, or a
+    # TemplateBody / TemplateURL
+    stack_name = kwargs.pop('stack_name', None)
+    template_url = kwargs.pop('template_url', None)
+    template_body = kwargs.pop('template_body', None)
+
+    if not stack_name == None:
+        template = cf.get_template_summary(StackName=stack_name)
+    elif not template_url == None:
+        template = cf.get_template_summary(TemplateURL=template_url)
+    elif not template_body == None:
+        template = cf.get_template_summary(TemplateBodyL=template_body)
+    else:
+        template = None
+
+    if not template == None:
+        # Create dict of template parameter default values
+        template_parameters = template['Parameters']
+
+        template_defaults = {}
+        position = 0
+        for element in template_parameters:
+            key = element['ParameterKey']
+            value = element['DefaultValue']
+            template_defaults.update({key: value})
+            position += 1
+        return template_defaults
+    else:
+        # No template specified
+        return None
+
+
 def print_stack_resources(stack_name, stack_resources_dict):
     print('\n' + stack_name + ' Resources: ')
     for key in stack_resources_dict:
