@@ -219,10 +219,32 @@ def get_template_defaults(cf, **kwargs):
         return None
 
 
+def create_parameters_dict(cf, cf_templates_list, bucket_url):
+    cf_template_url_list = []
+    for element in cf_templates_list:
+        template_url = get_cf_template_url(bucket_url, element)
+        cf_template_url_list.append(template_url)
+
+    cf_parameters_list = []
+    for element in cf_template_url_list:
+        template_defaults = get_template_defaults(cf, template_url=element)
+        cf_parameters_list.append(template_defaults)
+
+    position = 0
+    cf_default_parameters_dict = {}
+    for template in cf_templates_list:
+        # Remove .template extension
+        cf_template_name = template.split('.template')[0]
+        cf_default_parameters_dict[cf_template_name] = cf_parameters_list[position]
+        position += 1
+
+    return cf_default_parameters_dict
+
+
 def print_stack_resources(stack_name, stack_resources_dict):
     print('\n' + stack_name + ' Resources: ')
     for key in stack_resources_dict:
-        print(key + ': ' + stack_resources_dict[key])
+        print(' ' + key + ': ' + stack_resources_dict[key])
 
 
 def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
@@ -505,6 +527,8 @@ def main(argv):
                      cf_directory, cf_templates_list)
     bucket_url = get_bucket_url(s3_bucket_name, environment)
 
+    cf_default_parameters_dict = create_parameters_dict(cf, cf_templates_list, bucket_url)
+
     # Base Network Parameters
     print('\nBase Network Parameters: ')
     az_count = raw_input('Availability Zone Count (2): ')
@@ -514,6 +538,17 @@ def main(argv):
     if cidr == '':
         cidr = '172.18.0.0/16'
 
+    # Running through default parameters TODO cleaner, export to parameters files instead of CLI input
+    # for key in cf_default_parameters_dict['base_network']:
+    #     if cf_default_parameters_dict['base_network'][key] is not None:
+    #         parameter_value_input = raw_input(' ' + key + '(' + cf_default_parameters_dict['base_network'][key] + '): ')
+    #         if not parameter_value_input == '':
+    #             cf_default_parameters_dict['base_network'][key] = parameter_value_input
+    #     else:
+    #         parameter_value_input = raw_input(' ' + key + ': ' + '-')
+    #         if not parameter_value_input == '':
+    #             cf_default_parameters_dict['base_network'][key] = parameter_value_input
+
     # Route53 Internal Zone Parameters
     print('\nRoute53 Internal Zone Parameters: ')
     internal_zone_name = raw_input('Internal Zone Name (prod): ')
@@ -522,7 +557,10 @@ def main(argv):
 
     # SNS Topic Subscription Parameters
     print('\nSNS Topic Subscription Parameters: ')
+    # Cannot be empty
     raw_sns_topic_name = raw_input('SNS Topic Name: ')
+    while raw_sns_topic_name == '':
+        raw_sns_topic_name = raw_input('SNS Topic Name requires a value: ')
     sns_protocol_1 = raw_input('SNS Protocol 1 (email): ')
     if sns_protocol_1 == '':
         sns_protocol_1 = 'email'
