@@ -91,10 +91,10 @@ def set_sns_topic_name(raw_sns_topic_name):
 
 
 def create_s3_bucket(s3, s3_bucket_name, region):
-    bucket = s3.create_bucket(Bucket=s3_bucket_name, ACL='private')
-    bucket_versioning = s3.put_bucket_versioning(
-        Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
-    bucket_lifecycle = s3.put_bucket_lifecycle(
+    s3.create_bucket(Bucket=s3_bucket_name, ACL='private',
+                     CreateBucketConfiguration={'LocationConstraint': region})
+    s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
+    s3.put_bucket_lifecycle(
         Bucket=s3_bucket_name,
         LifecycleConfiguration={
             'Rules': [
