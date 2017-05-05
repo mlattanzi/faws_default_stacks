@@ -199,7 +199,7 @@ def get_template_defaults(cf, **kwargs):
     else:
         template = None
 
-    if not template is None:
+    if template is not None:
         # Create dict of template parameter default values
         template_parameters = template['Parameters']
 
@@ -269,7 +269,7 @@ def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
         '-' + cf_parameters_list['cf_stack_name']
 
     if get_stack_deployed(cf, base_network_stack_name) is False:
-        stack = cf.create_stack(
+        cf.create_stack(
             StackName=base_network_stack_name,
             TemplateURL=cf_template_url,
             Parameters=[
@@ -340,7 +340,7 @@ def deploy_s3_vpc_endpoint_cf_stack(cf, bucket_url, cf_parameters_list):
                            cf_parameters_list['route_table_private_az3']
 
     if get_stack_deployed(cf, s3_vpc_endpoint_stack_name) is False:
-        stack = cf.create_stack(
+        cf.create_stack(
             StackName=s3_vpc_endpoint_stack_name,
             TemplateURL=cf_template_url,
             Parameters=[
@@ -375,7 +375,7 @@ def deploy_route53_internalzone_cf_stack(cf, bucket_url, cf_parameters_list):
     internal_zone_name = cf_parameters_list['InternalZoneName']
 
     if get_stack_deployed(cf, route53_internalzone_stack_name) is False:
-        stack = cf.create_stack(
+        cf.create_stack(
             StackName=route53_internalzone_stack_name,
             TemplateURL=cf_template_url,
             Parameters=[
@@ -419,7 +419,7 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     sns_topic_name = set_sns_topic_name(raw_sns_topic_name)
 
     if get_stack_deployed(cf, sns_topic_subscriptions_stack_name) is False:
-        stack = cf.create_stack(
+        cf.create_stack(
             StackName=sns_topic_subscriptions_stack_name,
             TemplateURL=cf_template_url,
             Parameters=[
@@ -541,7 +541,9 @@ def main(argv):
     # Running through default parameters TODO cleaner, export to parameters files instead of CLI input
     # for key in cf_default_parameters_dict['base_network']:
     #     if cf_default_parameters_dict['base_network'][key] is not None:
-    #         parameter_value_input = raw_input(' ' + key + '(' + cf_default_parameters_dict['base_network'][key] + '): ')
+    #         parameter_value_input = raw_input(
+    #             ' ' + key + '(' + cf_default_parameters_dict['base_network'][key] + '): '
+    #         )
     #         if not parameter_value_input == '':
     #             cf_default_parameters_dict['base_network'][key] = parameter_value_input
     #     else:
@@ -594,20 +596,30 @@ def main(argv):
         route_table_private_az3 = None
 
     # Define S3 VPC Endpoint parameters, Deploy Stack
-    s3_vpc_endpoint_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'S3-VPC-Endpoint', 'VPCID': vpcid, 'route_table_public': route_table_public,
-                                          'route_table_private_az1': route_table_private_az1, 'route_table_private_az2': route_table_private_az2, 'route_table_private_az3': route_table_private_az3}
+    s3_vpc_endpoint_cf_parameters_list = {
+        'stack_prefix': stack_prefix, 'cf_stack_name': 'S3-VPC-Endpoint', 'VPCID': vpcid,
+        'route_table_public': route_table_public, 'route_table_private_az1': route_table_private_az1,
+        'route_table_private_az2': route_table_private_az2, 'route_table_private_az3': route_table_private_az3
+    }
     s3_vpc_endpoint_stack_name = deploy_s3_vpc_endpoint_cf_stack(
         cf, bucket_url, s3_vpc_endpoint_cf_parameters_list)
 
     # Define Route53 Internal Zone parameters, Deploy Stack
-    route53_internalzone_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'Route53-InternalZone',
-                                               'VPCID': vpcid, 'Environment': environment, 'InternalZoneName': internal_zone_name}
+    route53_internalzone_cf_parameters_list = {
+        'stack_prefix': stack_prefix, 'cf_stack_name': 'Route53-InternalZone', 'VPCID': vpcid,
+        'Environment': environment, 'InternalZoneName': internal_zone_name
+    }
     route53_internalzone_stack_name = deploy_route53_internalzone_cf_stack(
         cf, bucket_url, route53_internalzone_cf_parameters_list)
 
     # Define SNS Topic Subscription parameters, Deploy Stack
-    sns_topic_subscriptions_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'SNS-Topic-Subscriptions', 'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1,
-                                                  'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2, 'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3, 'DisplayName': raw_sns_topic_name}
+    sns_topic_subscriptions_cf_parameters_list = {
+        'stack_prefix': stack_prefix, 'cf_stack_name': 'SNS-Topic-Subscriptions',
+        'SubscriptionEndpoint1': sns_endpoint_1, 'SubscriptionProtocol1': sns_protocol_1,
+        'SubscriptionEndpoint2': sns_endpoint_2, 'SubscriptionProtocol2': sns_protocol_2,
+        'SubscriptionEndpoint3': sns_endpoint_3, 'SubscriptionProtocol3': sns_protocol_3,
+        'DisplayName': raw_sns_topic_name
+    }
     sns_topic_subscriptions_stack_name = deploy_sns_topic_subscriptions_cf_stack(
         cf, bucket_url, sns_topic_subscriptions_cf_parameters_list)
 
