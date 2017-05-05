@@ -244,7 +244,7 @@ def create_parameters_dict(cf, cf_templates_list, bucket_url):
 def print_stack_resources(stack_name, stack_resources_dict):
     print('\n' + stack_name + ' Resources: ')
     for key in stack_resources_dict:
-        print(key + ': ' + stack_resources_dict[key])
+        print(' ' + key + ': ' + stack_resources_dict[key])
 
 
 def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
@@ -557,7 +557,10 @@ def main(argv):
 
     # SNS Topic Subscription Parameters
     print('\nSNS Topic Subscription Parameters: ')
+    # Cannot be empty
     raw_sns_topic_name = raw_input('SNS Topic Name: ')
+    while raw_sns_topic_name == '':
+        raw_sns_topic_name = raw_input('SNS Topic Name requires a value: ')
     sns_protocol_1 = raw_input('SNS Protocol 1 (email): ')
     if sns_protocol_1 == '':
         sns_protocol_1 = 'email'
