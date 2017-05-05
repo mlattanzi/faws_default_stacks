@@ -14,21 +14,24 @@ def set_credentials(region=''):
     aws_session_token = os.environ.get('AWS_SESSION_TOKEN')
     region_name = os.environ.get('AWS_DEFAULT_REGION')
 
-    if region_name == None:
+    if region_name is None:
         region_name = region
 
     # If any of the Access Credentials were not provided, set them on the
     # command line
-    if aws_access_key_id == None or aws_secret_access_key == None or aws_session_token == None:
+    if aws_access_key_id is None or aws_secret_access_key is None or aws_session_token is None:
         print('\nAWS Credentials: ')
-    if aws_access_key_id == None:
+    if aws_access_key_id is None:
         aws_access_key_id = raw_input('AWS_ACCESS_KEY_ID: ')
-    if aws_secret_access_key == None:
+    if aws_secret_access_key is None:
         aws_secret_access_key = raw_input('AWS_SECRET_ACCESS_KEY: ')
-    if aws_session_token == None:
+    if aws_session_token is None:
         aws_session_token = raw_input('AWS_SESSION_TOKEN: ')
 
-    return({'aws_access_key_id': aws_access_key_id, 'aws_secret_access_key': aws_secret_access_key, 'aws_session_token': aws_session_token, 'region_name': region_name})
+    credentials = {'aws_access_key_id': aws_access_key_id, 'aws_secret_access_key': aws_secret_access_key,
+                   'aws_session_token': aws_session_token, 'region_name': region_name}
+
+    return credentials
 
 
 def set_s3_client(credentials):
@@ -180,23 +183,23 @@ def get_stack_deployed(cf, stack_name):
     return stack_deployed
 
 
-def get_template_defaults(**kwargs):
+def get_template_defaults(cf, **kwargs):
     # This function can take stack_name for an already deployed stack, or a
     # TemplateBody / TemplateURL
     stack_name = kwargs.pop('stack_name', None)
     template_url = kwargs.pop('template_url', None)
     template_body = kwargs.pop('template_body', None)
 
-    if not stack_name == None:
+    if stack_name is not None:
         template = cf.get_template_summary(StackName=stack_name)
-    elif not template_url == None:
+    elif template_url is not None:
         template = cf.get_template_summary(TemplateURL=template_url)
-    elif not template_body == None:
+    elif template_body is not None:
         template = cf.get_template_summary(TemplateBodyL=template_body)
     else:
         template = None
 
-    if not template == None:
+    if not template is None:
         # Create dict of template parameter default values
         template_parameters = template['Parameters']
 
@@ -204,7 +207,10 @@ def get_template_defaults(**kwargs):
         position = 0
         for element in template_parameters:
             key = element['ParameterKey']
-            value = element['DefaultValue']
+            try:
+                value = element['DefaultValue']
+            except:
+                value = None
             template_defaults.update({key: value})
             position += 1
         return template_defaults
@@ -240,7 +246,7 @@ def deploy_base_network_cf_stack(cf, bucket_url, cf_parameters_list):
     base_network_stack_name = cf_parameters_list['stack_prefix'] + \
         '-' + cf_parameters_list['cf_stack_name']
 
-    if get_stack_deployed(cf, base_network_stack_name) == False:
+    if get_stack_deployed(cf, base_network_stack_name) is False:
         stack = cf.create_stack(
             StackName=base_network_stack_name,
             TemplateURL=cf_template_url,
@@ -301,16 +307,17 @@ def deploy_s3_vpc_endpoint_cf_stack(cf, bucket_url, cf_parameters_list):
 
     vpcid = cf_parameters_list['VPCID']
 
-    if cf_parameters_list['route_table_private_az3'] == None:
+    if cf_parameters_list['route_table_private_az3'] is None:
         route_table_list = cf_parameters_list['route_table_public'] + ',' + \
-            cf_parameters_list['route_table_private_az1'] + \
-            ',' + cf_parameters_list['route_table_private_az2']
+                           cf_parameters_list['route_table_private_az1'] + ',' + \
+                           cf_parameters_list['route_table_private_az2']
     else:
-        route_table_list = cf_parameters_list['route_table_public'] + ',' + cf_parameters_list['route_table_private_az1'] + \
-            ',' + cf_parameters_list['route_table_private_az2'] + \
-            ',' + cf_parameters_list['route_table_private_az3']
+        route_table_list = cf_parameters_list['route_table_public'] + ',' + \
+                           cf_parameters_list['route_table_private_az1'] + ',' + \
+                           cf_parameters_list['route_table_private_az2'] + ',' + \
+                           cf_parameters_list['route_table_private_az3']
 
-    if get_stack_deployed(cf, s3_vpc_endpoint_stack_name) == False:
+    if get_stack_deployed(cf, s3_vpc_endpoint_stack_name) is False:
         stack = cf.create_stack(
             StackName=s3_vpc_endpoint_stack_name,
             TemplateURL=cf_template_url,
@@ -345,7 +352,7 @@ def deploy_route53_internalzone_cf_stack(cf, bucket_url, cf_parameters_list):
     environment = cf_parameters_list['Environment']
     internal_zone_name = cf_parameters_list['InternalZoneName']
 
-    if get_stack_deployed(cf, route53_internalzone_stack_name) == False:
+    if get_stack_deployed(cf, route53_internalzone_stack_name) is False:
         stack = cf.create_stack(
             StackName=route53_internalzone_stack_name,
             TemplateURL=cf_template_url,
@@ -389,7 +396,7 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     raw_sns_topic_name = cf_parameters_list['DisplayName']
     sns_topic_name = set_sns_topic_name(raw_sns_topic_name)
 
-    if get_stack_deployed(cf, sns_topic_subscriptions_stack_name) == False:
+    if get_stack_deployed(cf, sns_topic_subscriptions_stack_name) is False:
         stack = cf.create_stack(
             StackName=sns_topic_subscriptions_stack_name,
             TemplateURL=cf_template_url,
@@ -484,6 +491,20 @@ def main(argv):
     if stack_prefix == '':
         stack_prefix = 'prod'
 
+    # Set AWS Credentials
+    credentials = set_credentials(region)
+
+    # Initialize AWS Clients
+    s3 = set_s3_client(credentials)
+    cf = set_cf_client(credentials)
+    ec2 = set_ec2_client(credentials)
+
+    # Create CloudFormation S3 Bucket & Upload CloudFormation templates
+    create_s3_bucket(s3, s3_bucket_name, region)
+    upload_s3_object(s3, s3_bucket_name, environment,
+                     cf_directory, cf_templates_list)
+    bucket_url = get_bucket_url(s3_bucket_name, environment)
+
     # Base Network Parameters
     print('\nBase Network Parameters: ')
     az_count = raw_input('Availability Zone Count (2): ')
@@ -515,27 +536,13 @@ def main(argv):
         sns_protocol_3 = 'email'
     sns_endpoint_3 = raw_input('SNS Endpoint 3: ')
 
-    # Set AWS Credentials
-    credentials = set_credentials(region)
-
-    # Initialize AWS Clients
-    s3 = set_s3_client(credentials)
-    cf = set_cf_client(credentials)
-    ec2 = set_ec2_client(credentials)
-
-    # Create CloudFormation S3 Bucket & Upload CloudFormation templates
-    create_s3_bucket(s3, s3_bucket_name, region)
-    upload_s3_object(s3, s3_bucket_name, environment,
-                     cf_directory, cf_templates_list)
-    bucket_url = get_bucket_url(s3_bucket_name, environment)
-
     # Define Base Network parameters, Deploy Stack
     base_network_cf_parameters_list = {'stack_prefix': stack_prefix, 'cf_stack_name': 'BaseNetwork',
                                        'AvailabilityZoneCount': az_count, 'CIDRRange': cidr, 'Environment': environment}
     base_network_stack_name = deploy_base_network_cf_stack(
         cf, bucket_url, base_network_cf_parameters_list)
     # Verify stack build completed, store dictionary of stack resources
-    if get_stack_complete(cf, base_network_stack_name) == True:
+    if get_stack_complete(cf, base_network_stack_name) is True:
         base_network_stack_resources = get_stack_resources(
             cf, base_network_stack_name)
 
@@ -569,20 +576,20 @@ def main(argv):
     # Verify stack build completed, store dictionary of stack resources -
     # these are grouped because they can all deploy at the same time, but
     # BaseNetwork needs to run first
-    if get_stack_complete(cf, s3_vpc_endpoint_stack_name) == True:
+    if get_stack_complete(cf, s3_vpc_endpoint_stack_name) is True:
         s3_vpc_endpoint_stack_resources = get_stack_resources(
             cf, s3_vpc_endpoint_stack_name)
-    if get_stack_complete(cf, route53_internalzone_stack_name) == True:
+    if get_stack_complete(cf, route53_internalzone_stack_name) is True:
         route53_internalzone_stack_resources = get_stack_resources(
             cf, route53_internalzone_stack_name)
-    if get_stack_complete(cf, sns_topic_subscriptions_stack_name) == True:
+    if get_stack_complete(cf, sns_topic_subscriptions_stack_name) is True:
         sns_topic_subscriptions_stack_resources = get_stack_resources(
             cf, sns_topic_subscriptions_stack_name)
 
     # Create EC2 Key Pair, output to file
     ec2_key_name = set_ec2_key_name(raw_account_name, environment, region)
     ec2_key = create_ec2_key_pair(ec2, ec2_key_name)
-    if not ec2_key == None:
+    if ec2_key is not None:
         ec2_key_file_name = ec2_key_name + '.pem'
         write_file(ec2_key_file_name, ec2_key)
 
@@ -597,7 +604,7 @@ def main(argv):
     print_stack_resources(sns_topic_subscriptions_stack_name,
                           sns_topic_subscriptions_stack_resources)
 
-    if not ec2_key == None:
+    if ec2_key is not None:
         print('\nEC2 Key Pair: ')
         print('Key File Created: ' + ec2_key_file_name)
         print('Key Name: ' + ec2_key_name)
