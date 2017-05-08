@@ -91,24 +91,30 @@ def set_sns_topic_name(raw_sns_topic_name):
 
 
 def create_s3_bucket(s3, s3_bucket_name, region):
-    s3.create_bucket(Bucket=s3_bucket_name, ACL='private',
-                     CreateBucketConfiguration={'LocationConstraint': region})
-    s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
-    s3.put_bucket_lifecycle(
-        Bucket=s3_bucket_name,
-        LifecycleConfiguration={
-            'Rules': [
-                {
-                    'ID': 'DeletePreviousVersions',
-                    'Prefix': '',
-                    'Status': 'Enabled',
-                    'NoncurrentVersionExpiration': {
-                        'NoncurrentDays': 365
+    buckets = s3.list_buckets()['Buckets']
+    bucket_exists = False
+    for element in buckets:
+        if s3_bucket_name not in element['Name']:
+            bucket_exists = True
+    if bucket_exists is False:
+        s3.create_bucket(Bucket=s3_bucket_name, ACL='private',
+                         CreateBucketConfiguration={'LocationConstraint': region})
+        s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
+        s3.put_bucket_lifecycle(
+            Bucket=s3_bucket_name,
+            LifecycleConfiguration={
+                'Rules': [
+                    {
+                        'ID': 'DeletePreviousVersions',
+                        'Prefix': '',
+                        'Status': 'Enabled',
+                        'NoncurrentVersionExpiration': {
+                            'NoncurrentDays': 365
+                        }
                     }
-                }
-            ]
-        }
-    )
+                ]
+            }
+        )
 
 
 def upload_s3_object(s3, s3_bucket_name, environment, cf_directory, cf_templates_list):
@@ -462,6 +468,34 @@ def deploy_sns_topic_subscriptions_cf_stack(cf, bucket_url, cf_parameters_list):
     return sns_topic_subscriptions_stack_name
 
 
+def deploy_cf_stack(cf, bucket_url, cf_stack_parameters_dict, cf_parameters_dict):
+    cf_template_url = get_cf_template_url(bucket_url, cf_stack_parameters_dict['cf_template'])
+
+    stack_name = cf_stack_parameters_dict['stack_prefix'] + '-' + cf_stack_parameters_dict['cf_stack_name']
+
+    parameters = []
+    for key in cf_parameters_dict:
+        new_dict = {}
+        for value in cf_parameters_dict[key]:
+            new_dict['ParameterKey'] = value
+            new_dict['ParameterValue'] = cf_parameters_dict[key][value]
+            parameters.append(new_dict.copy())
+
+    if get_stack_deployed(cf, stack_name) is False:
+        cf.create_stack(
+            StackName=stack_name,
+            TemplateURL=cf_template_url,
+            Parameters=parameters,
+            TimeoutInMinutes=30,
+            Capabilities=[
+                'CAPABILITY_IAM',
+            ],
+            OnFailure='ROLLBACK'
+        )
+
+    return stack_name
+
+
 def create_ec2_key_pair(ec2, ec2_key_name):
     try:
         key_pair = ec2.create_key_pair(
@@ -489,27 +523,26 @@ def main(argv):
 
     # Script Parameters
     print('\nScript Parameters: ')
-    cf_directory = raw_input('CloudFormation Template Directory Path: ')
-    # TODO Template names are hard-coded in per-stack deployment - Cleanup
-    # somehow?
+    cf_directory = raw_input(' CloudFormation Template Directory Path: ')
     cf_templates_list = ['base_network.template', 's3_vpc.template',
                          'route53_internalzone.template', 'sns_topic_subscriptions.template']
+    #TODO better method for input cf_templates_list = raw_input('Templates to deploy: (' + cf_templates_list + '): ')
 
     # Account Parameters
     print('\nAccount Parameters: ')
-    ddi = raw_input('Rackspace Account Number: ')
-    raw_account_name = raw_input('Rackspace Account Name: ')
+    ddi = raw_input(' Rackspace Account Number: ')
+    raw_account_name = raw_input(' Rackspace Account Name: ')
     s3_bucket_name = set_s3_bucket_name(ddi, raw_account_name)
 
     # VPC Parameters
     print('\nVPC Parameters: ')
-    region = raw_input('Region (us-east-1): ')
+    region = raw_input(' Region (us-east-1): ')
     if region == '':
         region = 'us-east-1'
-    environment = raw_input('Environment (Production): ')
+    environment = raw_input(' Environment (Production): ')
     if environment == '':
         environment = 'Production'
-    stack_prefix = raw_input('Stack Prefix (prod): ')
+    stack_prefix = raw_input(' Stack Prefix (prod): ')
     if stack_prefix == '':
         stack_prefix = 'prod'
 
@@ -537,19 +570,6 @@ def main(argv):
     cidr = raw_input('CIDR Range (172.18.0.0/16): ')
     if cidr == '':
         cidr = '172.18.0.0/16'
-
-    # Running through default parameters TODO cleaner, export to parameters files instead of CLI input
-    # for key in cf_default_parameters_dict['base_network']:
-    #     if cf_default_parameters_dict['base_network'][key] is not None:
-    #         parameter_value_input = raw_input(
-    #             ' ' + key + '(' + cf_default_parameters_dict['base_network'][key] + '): '
-    #         )
-    #         if not parameter_value_input == '':
-    #             cf_default_parameters_dict['base_network'][key] = parameter_value_input
-    #     else:
-    #         parameter_value_input = raw_input(' ' + key + ': ' + '-')
-    #         if not parameter_value_input == '':
-    #             cf_default_parameters_dict['base_network'][key] = parameter_value_input
 
     # Route53 Internal Zone Parameters
     print('\nRoute53 Internal Zone Parameters: ')
