@@ -91,24 +91,30 @@ def set_sns_topic_name(raw_sns_topic_name):
 
 
 def create_s3_bucket(s3, s3_bucket_name, region):
-    s3.create_bucket(Bucket=s3_bucket_name, ACL='private',
-                     CreateBucketConfiguration={'LocationConstraint': region})
-    s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
-    s3.put_bucket_lifecycle(
-        Bucket=s3_bucket_name,
-        LifecycleConfiguration={
-            'Rules': [
-                {
-                    'ID': 'DeletePreviousVersions',
-                    'Prefix': '',
-                    'Status': 'Enabled',
-                    'NoncurrentVersionExpiration': {
-                        'NoncurrentDays': 365
+    buckets = s3.list_buckets()['Buckets']
+    bucket_exists = False
+    for element in buckets:
+        if s3_bucket_name not in element['Name']:
+            bucket_exists = True
+    if bucket_exists is False:
+        s3.create_bucket(Bucket=s3_bucket_name, ACL='private',
+                         CreateBucketConfiguration={'LocationConstraint': region})
+        s3.put_bucket_versioning(Bucket=s3_bucket_name, VersioningConfiguration={'Status': 'Enabled'})
+        s3.put_bucket_lifecycle(
+            Bucket=s3_bucket_name,
+            LifecycleConfiguration={
+                'Rules': [
+                    {
+                        'ID': 'DeletePreviousVersions',
+                        'Prefix': '',
+                        'Status': 'Enabled',
+                        'NoncurrentVersionExpiration': {
+                            'NoncurrentDays': 365
+                        }
                     }
-                }
-            ]
-        }
-    )
+                ]
+            }
+        )
 
 
 def upload_s3_object(s3, s3_bucket_name, environment, cf_directory, cf_templates_list):
